@@ -19,12 +19,26 @@ LOG = ("(lambda f: read(f).replace('\\r\\n', '\\n') if f else None)"
        "(next((f for f in ('openmc.log', 'out.txt') "
        "if (base_dir / f).is_file() and (base_dir / f).stat().st_size), None))")
 
+# First OpenMC error: " ERROR: <message>" and its continuation lines. With
+# several threads, OpenMC may print the message once per thread, the copies
+# interleaved line by line, glued inside a line ("...definition. ERROR: More",
+# "PleaseMore than", "ERROR:  ERROR:") or after the MPI abort lines: the text
+# from the first " ERROR: " line up to a Python traceback or a crash report
+# ("[host:pid] Caught signal") is cut at "ERROR:", at runs of 2 blanks or more
+# (indentation of a glued line) and at the copies of the first piece, what
+# follows "Abort(" is dropped, and each piece is kept once, in order: the
+# message is read once and in full.
+ERROR = (
+    "(lambda ps: ' '.join(dict.fromkeys(y for p in ps "
+    "for y in (z.strip() for z in re.split('(' + re.escape(ps[0]) + ')', p)) if y)) if ps else None)"
+    "([' '.join(p.split()) for l in m.group(0).split('\\n') "
+    "for p in re.split(r'ERROR:|\\s{2,}', l.split('Abort(')[0]) if p.strip()] "
+    "if (m := re.search(r'^ ERROR: .*(?:\\n(?!Traceback |\\[| =+> | *WARNING: ).*)*', t, re.M)) else [])")
+
 # First error found, else NORMAL END when the RESULTS banner was printed
 STATUS = (
     "(lambda t: 'NO OUTPUT' if t is None else "
-    # " ERROR: <message>", continuation lines indented by 8 blanks
-    "'ERROR: ' + ' '.join(m.group(1).split()) "
-    "if (m := re.search(r'^ ERROR: (.*(?:\\n {8}\\S.*)*)', t, re.M)) else "
+    "'ERROR: ' + e if (e := " + ERROR + ") else "
     # uncaught C++ exception (e.g. a malformed XML value)
     "'CRASH: ' + m.group(1).strip() "
     "if (m := re.search(r'^ +what\\(\\): +(.*)$', t, re.M)) else "
@@ -57,6 +71,14 @@ def tallies(group):
         "(read('tallies.out').replace('\\r\\n', '\\n') if (base_dir / 'tallies.out').is_file() else '')")
 
 
+# Absolute path of the last statepoint file (highest batch number; zero-padded
+# names with triggers), None if there is none: read it with the openmc API
+STATEPOINT = (
+    "(lambda f: str(f.resolve()) if f else None)"
+    "(max(base_dir.glob('statepoint.*.h5'), default=None, "
+    "key=lambda p: int(m.group(1)) if (m := re.search(r'\\.(\\d+)\\.h5$', p.name)) else -1))")
+
+
 def wrap(expr):
     return "python://(lambda re, read, base_dir: " + expr + ")(re, read, base_dir)"
 
@@ -75,6 +97,7 @@ MODEL = {
         "leakage_std": wrap(result("Leakage Fraction", 2)),
         "tally": wrap(tallies(1)),
         "tally_std": wrap(tallies(2)),
+        "statepoint": wrap(STATEPOINT),
     },
 }
 

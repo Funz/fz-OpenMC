@@ -100,6 +100,81 @@ def test_crlf(tmp_path):
     assert evaluate(tmp_path, "tally") == SPHERE_TALLY
 
 
+SOURCE_MSG = ("More than 95% of external source sites sampled were rejected. Please check your external "
+              "source's spatial definition.")
+
+
+@pytest.mark.parametrize("log, message", [
+    # OpenMC 0.15.0, 2 threads: the message once per thread, lines interleaved
+    (" ERROR: More than 95% of external source sites sampled were rejected. Please\n"
+     "         ERROR: More than 95% of external source sites sampled were rejected. Please\n"
+     "        check your external source's spatial definition.\n"
+     "check your external source's spatial definition.\n"
+     "Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n"
+     "Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n",
+     "More than 95% of external source sites sampled were rejected. Please check your external "
+     "source's spatial definition."),
+    # OpenMC 0.15.0, 2 threads: the second copy glued to the end of the first one
+    (" ERROR: More than 95% of external source sites sampled were rejected. Please\n"
+     "        check your external source's spatial definition. ERROR: More than 95% of external "
+     "source sites sampled were rejected. Please\n"
+     "        check your external source's spatial definition.\n"
+     "\n"
+     "Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n",
+     "More than 95% of external source sites sampled were rejected. Please check your external "
+     "source's spatial definition."),
+    # OpenMC 0.15.0, 8 threads: copies glued without blank, continuation lines after the abort
+    (' ERROR:  ERROR:  ERROR: More than 95% of external source sites sampled were rejected. Please ERROR: More than 95% of external source sites sampled were rejected. Please ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+     ' ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+     'More than 95% of external source sites sampled were rejected. Please\n'
+     '   \n'
+     '   ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+     " More than 95% of external source sites sampled were rejected. Please               check your external source's spatial definition.      check your external source's spatial definition.\n"
+     'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+     "   check your external source's spatial definition.\n"
+     '\n'
+     "         check your external source's spatial definition.\n"
+     'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+     '\n'
+     'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+     'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+     '           ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+     "        check your external source's spatial definition.    \n"
+     "        check your external source's spatial definition.\n"
+     'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+     '\n',
+     SOURCE_MSG),
+    # OpenMC 0.15.0, 12 threads: copies glued without blank, continuation lines after the abort
+    (' ERROR:  ERROR:  ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+     "        check your external source's spatial definition.\n"
+     'More than 95% of external source sites sampled were rejected. PleaseMore than 95% of external source sites sampled were rejected. Please\n'
+     "   ERROR: More than 95% of external source sites sampled were rejected. Please      check your external source's spatial definition.\n"
+     '\n'
+     ' ERROR: More than 95% of external source sites sampled were rejected. Please ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+     "        check your external source's spatial definition.          check your external source's spatial definition.\n"
+     '   \n'
+     '\n'
+     ' ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+     "        check your external source's spatial definition.\n"
+     'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+     'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n',
+     SOURCE_MSG),
+    # copies on the same line, abort message glued to it
+    (" ERROR:  ERROR: Overlapping cells detected: 2, 1 on universe 1Abort(-1) on node 0 (rank 0 in comm 0)\n",
+     "Overlapping cells detected: 2, 1 on universe 1")])
+def test_error_of_several_threads(tmp_path, log, message):
+    (tmp_path / "openmc.log").write_text(" Reading model XML file 'model.xml' ...\n" + log)
+    assert evaluate(tmp_path, "openmc_status") == "ERROR: " + message
+
+
+def test_statepoint(tmp_path):
+    """Last statepoint by batch number (zero-padded names with triggers), absolute path."""
+    assert evaluate(tmp_path, "statepoint") is None
+    for name in ("statepoint.5.h5", "statepoint.070.h5", "statepoint.10.h5", "summary.h5"):
+        (tmp_path / name).write_text("")
+    assert evaluate(tmp_path, "statepoint") == str((tmp_path / "statepoint.070.h5").resolve())
+
+
 def test_tallies_with_nuclides_and_long_scores(tmp_path):
     """Layout of tallies.out with cell/nuclide bins and a score name of 36
     characters or more (followed by a single blank)."""

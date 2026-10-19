@@ -44,7 +44,10 @@ echo "PATH=$PATH" > "$(dirname "$0")/python_env.txt"
 grep -q RAISE "$1" && { cat "$FIXTURES/err_python/openmc.log"; exit 1; }
 if [ -n "$FAKE_SCRIPT_RUNS" ]; then
   openmc
-  exit $?
+  rc=$?
+  # model.run() raises RuntimeError when openmc fails
+  [ $rc -ne 0 ] && { printf 'Traceback (most recent call last):\n  File "sphere.py", line 40\nRuntimeError: OpenMC failed\n'; exit 1; }
+  exit 0
 fi
 echo '<model/>' > model.xml
 """
@@ -122,6 +125,7 @@ def test_xml_model(run, bindir):
     assert Path((bindir / "cwd.txt").read_text().strip()) == case
     assert (case / "openmc.log").read_text() == (FIXTURES / "ok_eigenvalue" / "openmc.log").read_text()
     assert "Combined k-effective        = 1.02059 +/- 0.00834" in proc.stdout
+    assert proc.stdout.splitlines()[-1] == f"Statepoint: {case}/statepoint.30.h5"
 
 
 def test_separate_xml_files(run, bindir):
@@ -178,18 +182,75 @@ def test_stale_outputs_are_removed(run, bindir):
         (case / f).write_text("old")
     proc, case = run(fake_case="none")
     assert proc.returncode == 6          # no RESULTS banner and no statepoint
+    assert "No statepoint file" in proc.stderr
     assert not (case / "statepoint.10.h5").exists()
     assert not (case / "tallies.out").exists()
 
 
-@pytest.mark.parametrize("fake_case, fake_rc", [("err_xs_missing", 255), ("err_bad_value", 134)])
-def test_openmc_failure(run, fake_case, fake_rc):
+@pytest.mark.parametrize("fake_case, fake_rc, message", [
+    ("err_xs_missing", 255, "Cross section HDF5 file 'nofile.h5' does not exist"),
+    ("err_bad_value", 134, "stoll")])
+def test_openmc_failure(run, fake_case, fake_rc, message):
+    """The error message is on the last line of stderr (fz shows stderr as the error)."""
     proc, case = run(fake_case=fake_case, env={"FAKE_RC": str(fake_rc)})
     assert proc.returncode == 5
-    assert f"exit code {fake_rc}" in proc.stderr
-    first = (FIXTURES / fake_case / "stderr.txt").read_text().splitlines()[-1].strip()
-    assert first.split()[0] in proc.stderr
+    assert proc.stderr.splitlines()[-1] == f"OpenMC failed (exit code {fake_rc}): {message}"
     assert not (case / "PID").exists()
+
+
+def test_openmc_failure_in_model_run(run):
+    """model.run() in the script: an OpenMC error is an OpenMC failure (5), not a Python one (3)."""
+    proc, _ = run(fake_case="err_xs_missing", files=("sphere.py",),
+                  env={"FAKE_SCRIPT_RUNS": "1", "FAKE_RC": "255"})
+    assert proc.returncode == 5
+    assert proc.stderr.splitlines()[-1] == ("OpenMC failed in sphere.py (exit code 1): "
+                                            "Cross section HDF5 file 'nofile.h5' does not exist")
+
+
+THREADS_LOG = {
+    # OpenMC 0.15.0, 2 threads: the copies interleaved line by line
+    "2": (" ERROR: More than 95% of external source sites sampled were rejected. Please\n"
+          "         ERROR: More than 95% of external source sites sampled were rejected. Please\n"
+          "        check your external source's spatial definition.\n"
+          "check your external source's spatial definition.\n"
+          "Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n"
+          "Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n"),
+    # OpenMC 0.15.0, 12 threads: copies glued, continuation lines after blank lines
+    "12": (' ERROR:  ERROR:  ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+    "        check your external source's spatial definition.\n"
+    'More than 95% of external source sites sampled were rejected. PleaseMore than 95% of external source sites sampled were rejected. Please\n'
+    "   ERROR: More than 95% of external source sites sampled were rejected. Please      check your external source's spatial definition.\n"
+    '\n'
+    ' ERROR: More than 95% of external source sites sampled were rejected. Please ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+    "        check your external source's spatial definition.          check your external source's spatial definition.\n"
+    '   \n'
+    '\n'
+    ' ERROR: More than 95% of external source sites sampled were rejected. Please\n'
+    "        check your external source's spatial definition.\n"
+    'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+    'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+    '        \n'
+    "  check your external source's spatial definition.\n"
+    ' Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+    "       check your external source's spatial definition.\n"
+    'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+    'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'
+    'Abort(-1) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, -1) - process 0\n'),
+}
+
+
+@pytest.mark.parametrize("threads", sorted(THREADS_LOG))
+def test_error_message_of_several_threads(run, bindir, threads):
+    """Message printed once per thread, copies interleaved or glued: read once, in full
+    (same rule as the openmc_status output)."""
+    log = bindir / "threads.log"
+    log.write_text(THREADS_LOG[threads])
+    (bindir / "openmc").write_text(f"#!/bin/bash\ncat '{log}'\nexit 255\n")
+    proc, _ = run()
+    assert proc.returncode == 5
+    assert proc.stderr.splitlines()[-1] == (
+        "OpenMC failed (exit code 255): More than 95% of external source sites sampled were "
+        "rejected. Please check your external source's spatial definition.")
 
 
 def test_interrupted_run(run):
@@ -228,11 +289,14 @@ def test_python_script_choice(run, bindir):
 
 
 def test_python_script_failure(run):
+    """Python error: exit code 3, the exception and the line of the script on stderr."""
     _, case = run(fake_case="none", files=())
     (case / "sphere.py").write_text("import openmc\nRAISE\n")
     proc, _ = run(files=("sphere.py",))
     assert proc.returncode == 3
-    assert "AttributeError" in proc.stderr
+    assert proc.stderr.splitlines()[-1] == (
+        "Python script sphere.py failed (exit code 1): line 33: AttributeError: module 'openmc' "
+        "has no attribute 'Sphre'. Did you mean: 'Sphere'?")
 
 
 def test_python_script_without_model(run, bindir):

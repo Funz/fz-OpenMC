@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODEL_FILE = ROOT / ".fz" / "models" / "OpenMC.json"
 CALCULATOR = ROOT / ".fz" / "calculators" / "localhost_OpenMC.json"
 SCRIPT = ROOT / ".fz" / "calculators" / "OpenMC.sh"
-OUTPUTS = ["openmc_status", "keff", "keff_std", "leakage", "leakage_std", "tally", "tally_std"]
+OUTPUTS = ["openmc_status", "keff", "keff_std", "leakage", "leakage_std", "tally", "tally_std", "statepoint"]
 
 
 def test_model_file():
