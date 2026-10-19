@@ -7,8 +7,11 @@ either input form of OpenMC — a Python script using the `openmc` API, or XML f
 ## Features
 
 - Variables and formulas in OpenMC Python scripts and XML files
-- Extraction of the run status (with the first error message), the combined keff and its
-  standard deviation, the leakage fraction, and every tally of `tallies.out`
+- Extraction of the run status (with the first error message, read in full even when several
+  threads print it interleaved), the combined keff and its standard deviation, the leakage
+  fraction, every tally of `tallies.out`, and the path of the last statepoint file
+- Explicit failures: an exit code per kind of error and the error message on one line of
+  stderr (shown by fz as the case `error`)
 - Success decided from the OpenMC output (`RESULTS` banner, statepoint file), not only from
   the exit code
 - Output extraction in Python (fz `python://` expressions): no bash, awk or grep needed to
@@ -69,6 +72,7 @@ Files read: `openmc.log` (all the output of the Python script and of OpenMC, wri
 | Variable | Content |
 |---|---|
 | `openmc_status` | `NORMAL END`, `ERROR: <first OpenMC error>`, `CRASH: <C++ exception>` (e.g. a malformed XML value), `PYTHON ERROR: <last line of the traceback>` (input script), `NO END BANNER` (interrupted run), `NO OUTPUT` |
+| `statepoint` | absolute path of the last statepoint file of the case (highest batch number), empty if there is none |
 | `keff`, `keff_std` | combined k-effective and its standard deviation (eigenvalue mode with enough active batches; empty in fixed-source mode or with a single active batch) |
 | `leakage`, `leakage_std` | leakage fraction and its standard deviation |
 | `tally`, `tally_std` | for each tally of `tallies.out`, each score: mean (std) as a number, or a list over the filter/nuclide bins in the order of `tallies.out`; flattened by fz into `tally_<id>_<score>`, `tally_std_<id>_<score>` (score names in lowercase, `_` for any other character: `Fission Rate` → `fission_rate`, `(n,gamma)` → `n_gamma`) |
@@ -98,13 +102,27 @@ gives `keff` = 1.02059, `keff_std` = 0.00834, `tally_1_flux` = [3.11693, 19.8263
 
 Values are read from the terminal output, rounded by OpenMC (`keff` to 5 decimals, tallies
 to 6 significant digits). For full precision or anything else (mesh tallies as arrays,
-k-generation, source), read the statepoint file with the `openmc` Python API (the files are
-in each case directory of the results) with `h5py` or the `openmc` Python API, e.g. by
-adding an output to a copy of the model:
+k-generation, source), read the statepoint file given by `statepoint` with the `openmc`
+Python API or `h5py`:
+
+```python
+import openmc
+for path in results["statepoint"].dropna():
+    with openmc.StatePoint(path) as sp:
+        print(sp.keff, sp.get_tally(name="flux").mean.ravel())
+```
+
+or add an output to a copy of the model:
 
 ```json
 "keff_full": "python://__import__('h5py').File(next(base_dir.glob('statepoint.*.h5')))['k_combined'][()].tolist()"
 ```
+
+**Several threads.** OpenMC 0.15 may print a fatal error once per OpenMP thread, the copies
+interleaved line by line or glued inside a line (`...definition. ERROR: More than 95%...`).
+`openmc_status` (and the stderr message of `OpenMC.sh`) cut this text at `ERROR:`, at runs of
+blanks and at the repeated first piece, and keep each piece once: the message is read once
+and in full (checked with 2 to 12 threads).
 
 `tallies.out` is written by default; it is missing if the model sets
 `settings.output = {'tallies': False}`, and then `tally` is empty. With `settings.verbosity`
@@ -122,7 +140,7 @@ fissile regions for **all** sampled values of the geometric variables (otherwise
 ## Requirements
 
 - fz, bash (Git Bash, MSYS2 or WSL on Windows)
-- OpenMC (tested with 0.16.0), e.g. `conda install -c conda-forge openmc`
+- OpenMC (tested with 0.16.0 and 0.15.0), e.g. `conda install -c conda-forge openmc`
 - for continuous-energy models, a nuclear data library (`cross_sections.xml`, see
   [OpenMC data](https://openmc.org/data/)): set `OPENMC_CROSS_SECTIONS`, or
   `materials.cross_sections` in the model
@@ -156,9 +174,21 @@ Environment of the calculator script (`.fz/calculators/OpenMC.sh`), all optional
 uses the same OpenMC. The threads/MPI settings do not apply when the script runs OpenMC
 itself: pass them to `model.run(threads=..., mpi_args=[...])`.
 
-Exit codes: 0 normal end, 1 no input found (or a Python input that neither ran OpenMC nor
-exported the model), 2 usage, 3 Python input failed, 4 executable not found, 5 OpenMC failed
-(message on stderr), 6 no `RESULTS` banner or no statepoint (interrupted run).
+Exit codes of `OpenMC.sh` (on failure, the last line of stderr is the error message, e.g.
+`OpenMC failed in godiva.py (exit code 1): Could not find nuclide U-235 in the nuclear data library.`):
+
+| Code | Meaning |
+|---|---|
+| 0 | normal end; stdout: combined keff, leakage, `Statepoint: <path>` |
+| 1 | no input found, or a Python input that neither ran OpenMC nor exported the model |
+| 2 | usage |
+| 3 | Python input failed (Python error before or outside OpenMC): `Python script <script> failed (exit code N): line L: <exception>` |
+| 4 | executable not found |
+| 5 | OpenMC failed, run by `OpenMC.sh` or by `model.run()` in the Python input: `OpenMC failed [in <script>] (exit code N): <first OpenMC error>` |
+| 6 | no `RESULTS` banner or no statepoint (interrupted run, `settings.verbosity` < 4) |
+
+fz reruns a failed case (`FZ_MAX_RETRIES`, default 5): set `FZ_MAX_RETRIES=1` when an error is
+expected to be deterministic and long to reach.
 
 ## Usage
 
@@ -256,6 +286,7 @@ OPENMC_CMD=$(which openmc) bash tests/make_fixtures.sh   # regenerate the refere
 | `CRASH: stoll` | a non-numeric value in an integer XML field (e.g. `<particles>`) |
 | `ERROR: Exceeded maximum number of source rejections per sample ...` | source outside the fissile (or any) region for these variable values |
 | `NO END BANNER` | run killed, or `settings.verbosity` < 4, or `model.run(output=False)` in a Python input (the output must reach `openmc.log`) |
+| exit code 5 with a Python input | OpenMC error inside `model.run()`: the message is the OpenMC one, not the `RuntimeError` traceback |
 | `keff` empty with `NORMAL END` | fixed-source mode, or a single active batch |
 
 ## License

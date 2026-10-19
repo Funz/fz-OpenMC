@@ -26,11 +26,13 @@
 #   OPENMC_CROSS_SECTIONS  cross_sections.xml (continuous energy) or MGXS HDF5 file
 #                          used when the materials do not set one (read by OpenMC)
 #
-# Exit codes:
-#   0 normal end (RESULTS banner in openmc.log)
+# Exit codes (on failure, the first line of stderr is the error message):
+#   0 normal end (RESULTS banner in openmc.log); stdout: keff, leakage and the
+#     path of the last statepoint
 #   1 no input found           2 usage
-#   3 Python script failed     4 executable not found
-#   5 OpenMC failed (non-zero exit code; message on stderr)
+#   3 Python script failed (Python error, not in OpenMC)
+#   4 executable not found
+#   5 OpenMC failed, run directly or by model.run() in the Python script
 #   6 no RESULTS banner or no statepoint (interrupted or crashed run)
 
 if [ $# -eq 0 ]; then
@@ -88,6 +90,48 @@ fi
 # Stale outputs would be parsed instead of the new ones
 rm -f statepoint.*.h5 summary.h5 tallies.out openmc.log
 
+# First OpenMC error of openmc.log on one line: " ERROR: <message>" and its
+# continuation lines, else an uncaught C++ exception ("what(): ..."). With
+# several threads, the message may be printed once per thread, the copies
+# interleaved or glued: same rule as the openmc_status output of the model
+# (scripts/make_model.py): pieces cut at "ERROR:", at runs of 2 blanks or more
+# and at the copies of the first piece, each kept once.
+openmc_error() {
+  awk '
+    function add(y) { gsub(/^ +| +$/, "", y); if (y != "" && !seen[y]++) msg = msg (msg == "" ? "" : " ") y }
+    !on && /^ ERROR: / { on = 1 }
+    on && (/^Traceback / || /^\[/ || /^ =+> / || /^ *WARNING: /) { exit }
+    on {
+      sub(/Abort\(.*/, "")
+      n = split($0, piece, /ERROR:|[[:space:]][[:space:]]+/)
+      for (i = 1; i <= n; i++) {
+        x = piece[i]; gsub(/[[:space:]]+/, " ", x); sub(/^ /, "", x); sub(/ $/, "", x)
+        if (x != "") p[++np] = x
+      }
+    }
+    END {
+      for (i = 1; i <= np; i++) {
+        x = p[i]
+        while ((k = index(x, p[1])) > 0) { add(substr(x, 1, k - 1)); add(p[1]); x = substr(x, k + length(p[1])) }
+        add(x)
+      }
+      if (msg != "") print msg
+    }' openmc.log
+  grep -q '^ ERROR: ' openmc.log && return 0
+  local what
+  what="$(sed -n -E 's/^ +what\(\): +//p' openmc.log | head -n 1)"
+  [ -n "$what" ] && { echo "$what"; return 0; }
+  return 1
+}
+
+# Last line of the Python traceback, with the line of the script that failed
+python_error() {
+  local msg at
+  msg="$(awk '/^Traceback \(most recent call last\):/ { tb = 1; next } tb && /^[^ \t]/ { last = $0 } END { print last }' openmc.log)"
+  at="$(sed -n -E "s/^ +File \"(.*\/)?${SCRIPT//./\\.}\", line ([0-9]+).*/\2/p" openmc.log | tail -n 1)"
+  echo "${at:+line $at: }${msg:-$(tail -n 1 openmc.log)}"
+}
+
 run_bg() {
   "$@" >> openmc.log 2>&1 &
   local pid=$!
@@ -108,8 +152,12 @@ if [ -n "$SCRIPT" ]; then
   run_bg "$OPENMC_PYTHON" "$SCRIPT"
   RC=$?
   if [ $RC -ne 0 ]; then
-    echo "Python script $SCRIPT failed (exit code $RC):" >&2
-    tail -n 5 openmc.log >&2
+    # model.run() raises RuntimeError after an OpenMC error: an OpenMC failure
+    if MSG="$(openmc_error)"; then
+      echo "OpenMC failed in $SCRIPT (exit code $RC): $MSG" >&2
+      exit 5
+    fi
+    echo "Python script $SCRIPT failed (exit code $RC): $(python_error)" >&2
     exit 3
   fi
 fi
@@ -128,15 +176,23 @@ if ! ls statepoint.*.h5 >/dev/null 2>&1; then
   fi
   RC=$?
   if [ $RC -ne 0 ]; then
-    echo "OpenMC failed (exit code $RC):" >&2
-    grep -m1 -A3 -E '^ ERROR:|what\(\):' openmc.log >&2 || tail -n 5 openmc.log >&2
+    echo "OpenMC failed (exit code $RC): $(openmc_error || tail -n 1 openmc.log)" >&2
     exit 5
   fi
 fi
 
 if ! grep -q -E '^ =+> +RESULTS +<=+' openmc.log || ! ls statepoint.*.h5 >/dev/null 2>&1; then
-  echo "No RESULTS banner or no statepoint file: run interrupted or crashed (see openmc.log)" >&2
+  if MSG="$(openmc_error)"; then
+    echo "OpenMC failed: $MSG" >&2
+  elif ! ls statepoint.*.h5 >/dev/null 2>&1; then
+    echo "No statepoint file: run interrupted or crashed (see openmc.log)" >&2
+  else
+    echo "No RESULTS banner: run interrupted, or settings.verbosity < 4 (see openmc.log)" >&2
+  fi
   exit 6
 fi
 grep -E '^ (Combined k-effective|Leakage Fraction) ' openmc.log
+# last statepoint (highest batch number; names are zero-padded with triggers)
+SP="$(ls statepoint.*.h5 | sed -E 's/^statepoint\.0*([0-9]+)\.h5$/\1 &/' | sort -n | tail -n 1 | cut -d' ' -f2)"
+echo "Statepoint: $PWD/$SP"
 exit 0

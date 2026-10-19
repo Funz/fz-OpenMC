@@ -1,6 +1,1 @@
-Python script sphere.py failed (exit code 1):
-Traceback (most recent call last):
-  File "<case>/sphere.py", line 33, in <module>
-    sphere = openmc.Sphre(r=20, boundary_type="vacuum")
-             ^^^^^^^^^^^^
-AttributeError: module 'openmc' has no attribute 'Sphre'. Did you mean: 'Sphere'?
+Python script sphere.py failed (exit code 1): line 33: AttributeError: module 'openmc' has no attribute 'Sphre'. Did you mean: 'Sphere'?
