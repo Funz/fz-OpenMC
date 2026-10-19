@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (fake openmc)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install fz
+      # No fz.install('OpenMC') here: it would overwrite the checked-out .fz/
+      # with the published plugin, so CI would not test this commit.
+      run: pip install git+https://github.com/Funz/fz.git pytest
+
+    - name: Validate JSON and shell files
+      run: |
+        for f in .fz/models/*.json .fz/calculators/*.json; do python -m json.tool "$f" > /dev/null; done
+        for f in .fz/calculators/*.sh tests/*.sh; do bash -n "$f"; done
+        test -x .fz/calculators/OpenMC.sh
+
+    - name: Run tests
+      run: pytest tests/ -v
+
+  openmc:
+    name: Tests with OpenMC (conda-forge)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: mamba-org/setup-micromamba@v2
+      with:
+        environment-name: openmc
+        create-args: openmc python=3.12 pytest
+        init-shell: bash
+
+    - name: Install fz
+      run: pip install git+https://github.com/Funz/fz.git
+
+    - name: Run tests with a real OpenMC
+      run: |
+        openmc --version
+        pytest tests/ -v
+
+    - name: Output extraction on fixtures regenerated with this OpenMC
+      # informative: a new OpenMC version may change the reference values
+      # (fixed seed: same values with the same OpenMC version)
+      continue-on-error: true
+      run: |
+        bash tests/make_fixtures.sh
+        pytest tests/test_outputs.py -v

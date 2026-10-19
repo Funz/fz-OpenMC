@@ -1,0 +1,25 @@
+# OpenMC outputs
+statepoint.*.h5
+summary.h5
+tallies.out
+openmc.log
+particle_*.h5
+PID
+!examples/sphere_xml/mgxs.h5
+!tests/fixtures/**
+
+# fz results
+results/
+*_results/
+.fz/tmp/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db

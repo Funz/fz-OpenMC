@@ -1,0 +1,3 @@
+<root>/.fz/calculators/OpenMC.sh: line 92:  2148 Aborted                 "$@" >> openmc.log 2>&1
+OpenMC failed (exit code 134):
+  what():  stoll

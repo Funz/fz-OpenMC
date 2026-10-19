@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Bare sphere of a 2-group multiplying medium (cross sections: mgxs.h5, written by ../sphere.py).
+     fz variables: ${radius} sphere radius (cm), ${particles} particles per batch.
+     sphere volume (cm3): @{4/3*3.141592653589793*$radius**3} -->
+<model>
+  <materials>
+    <cross_sections>mgxs.h5</cross_sections>
+    <material id="1" name="fuel">
+      <density value="1.0" units="macro"/>
+      <macroscopic name="fuel"/>
+    </material>
+  </materials>
+  <geometry>
+    <cell id="1" material="1" region="-1" universe="1"/>
+    <surface id="1" type="sphere" boundary="vacuum" coeffs="0.0 0.0 0.0 ${radius~20}"/>
+  </geometry>
+  <settings>
+    <run_mode>eigenvalue</run_mode>
+    <particles>${particles~2000}</particles>
+    <batches>30</batches>
+    <inactive>10</inactive>
+    <source type="independent" strength="1.0" particle="neutron">
+      <space type="point">
+        <parameters>0.0 0.0 0.0</parameters>
+      </space>
+    </source>
+    <energy_mode>multi-group</energy_mode>
+  </settings>
+  <tallies>
+    <filter id="1" type="energy">
+      <bins>0.0 0.625 20000000.0</bins>
+    </filter>
+    <tally id="1" name="flux">
+      <filters>1</filters>
+      <scores>flux fission</scores>
+    </tally>
+    <tally id="2" name="absorption">
+      <scores>absorption</scores>
+    </tally>
+  </tallies>
+</model>

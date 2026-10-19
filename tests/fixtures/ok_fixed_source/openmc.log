@@ -1,0 +1,91 @@
+                                %%%%%%%%%%%%%%%
+                           %%%%%%%%%%%%%%%%%%%%%%%%
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                    %%%%%%%%%%%%%%%%%%%%%%%%
+                                     %%%%%%%%%%%%%%%%%%%%%%%%
+                 ###############      %%%%%%%%%%%%%%%%%%%%%%%%
+                ##################     %%%%%%%%%%%%%%%%%%%%%%%
+                ###################     %%%%%%%%%%%%%%%%%%%%%%%
+                ####################     %%%%%%%%%%%%%%%%%%%%%%
+                #####################     %%%%%%%%%%%%%%%%%%%%%
+                ######################     %%%%%%%%%%%%%%%%%%%%
+                #######################     %%%%%%%%%%%%%%%%%%
+                 #######################     %%%%%%%%%%%%%%%%%
+                 ######################     %%%%%%%%%%%%%%%%%
+                  ####################     %%%%%%%%%%%%%%%%%
+                    #################     %%%%%%%%%%%%%%%%%
+                     ###############     %%%%%%%%%%%%%%%%
+                       ############     %%%%%%%%%%%%%%%
+                          ########     %%%%%%%%%%%%%%
+                                      %%%%%%%%%%%
+
+                 | The OpenMC Monte Carlo Code
+       Copyright | 2011-2026 MIT, UChicago Argonne LLC, and contributors
+         License | https://docs.openmc.org/en/latest/license.html
+         Version | 0.16.0
+     Commit Hash | 617d35a5063c57796b43428bc401e627d2011046
+       Date/Time | 2026-10-19 07:30:07
+   MPI Processes | 1
+  OpenMP Threads | 4
+
+ Reading model XML file 'model.xml' ...
+ Reading cross sections HDF5 file...
+ Loading cross section data...
+ Loading fuel data...
+ Preparing distributed cell instances...
+ Writing summary.h5 file...
+
+ ===============>     FIXED SOURCE TRANSPORT SIMULATION     <===============
+
+ Simulating batch 1
+ Simulating batch 2
+ Simulating batch 3
+ Simulating batch 4
+ Simulating batch 5
+ Simulating batch 6
+ Simulating batch 7
+ Simulating batch 8
+ Simulating batch 9
+ Simulating batch 10
+ Simulating batch 11
+ Simulating batch 12
+ Simulating batch 13
+ Simulating batch 14
+ Simulating batch 15
+ Simulating batch 16
+ Simulating batch 17
+ Simulating batch 18
+ Simulating batch 19
+ Simulating batch 20
+ Simulating batch 21
+ Simulating batch 22
+ Simulating batch 23
+ Simulating batch 24
+ Simulating batch 25
+ Simulating batch 26
+ Simulating batch 27
+ Simulating batch 28
+ Simulating batch 29
+ Simulating batch 30
+ Creating state point statepoint.30.h5...
+
+ =======================>     TIMING STATISTICS     <=======================
+
+ Total time for initialization     = 4.1128e-03 seconds
+   Reading cross sections          = 1.3088e-03 seconds
+ Total time in simulation          = 3.2165e-02 seconds
+   Time in transport only          = 2.9724e-02 seconds
+   Time in active batches          = 3.2165e-02 seconds
+   Time accumulating tallies       = 4.7730e-04 seconds
+   Time writing statepoints        = 1.8371e-03 seconds
+ Total time for finalization       = 1.2095e-04 seconds
+ Total time elapsed                = 3.6413e-02 seconds
+ Calculation Rate (active)         = 932698 particles/second
+
+ ============================>     RESULTS     <============================
+
+ Leakage Fraction            = 1.13810 +/- 0.00384
+

@@ -1,0 +1,6 @@
+{
+    "uri": "sh://",
+    "models": {
+        "OpenMC": "bash .fz/calculators/OpenMC.sh"
+    }
+}

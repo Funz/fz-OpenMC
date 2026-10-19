@@ -1,0 +1,103 @@
+                                %%%%%%%%%%%%%%%
+                           %%%%%%%%%%%%%%%%%%%%%%%%
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                    %%%%%%%%%%%%%%%%%%%%%%%%
+                                     %%%%%%%%%%%%%%%%%%%%%%%%
+                 ###############      %%%%%%%%%%%%%%%%%%%%%%%%
+                ##################     %%%%%%%%%%%%%%%%%%%%%%%
+                ###################     %%%%%%%%%%%%%%%%%%%%%%%
+                ####################     %%%%%%%%%%%%%%%%%%%%%%
+                #####################     %%%%%%%%%%%%%%%%%%%%%
+                ######################     %%%%%%%%%%%%%%%%%%%%
+                #######################     %%%%%%%%%%%%%%%%%%
+                 #######################     %%%%%%%%%%%%%%%%%
+                 ######################     %%%%%%%%%%%%%%%%%
+                  ####################     %%%%%%%%%%%%%%%%%
+                    #################     %%%%%%%%%%%%%%%%%
+                     ###############     %%%%%%%%%%%%%%%%
+                       ############     %%%%%%%%%%%%%%%
+                          ########     %%%%%%%%%%%%%%
+                                      %%%%%%%%%%%
+
+                 | The OpenMC Monte Carlo Code
+       Copyright | 2011-2026 MIT, UChicago Argonne LLC, and contributors
+         License | https://docs.openmc.org/en/latest/license.html
+         Version | 0.16.0
+     Commit Hash | 617d35a5063c57796b43428bc401e627d2011046
+       Date/Time | 2026-10-19 07:30:06
+   MPI Processes | 1
+  OpenMP Threads | 4
+
+ Reading model XML file 'model.xml' ...
+ Reading cross sections HDF5 file...
+ Loading cross section data...
+ Loading fuel data...
+ Preparing distributed cell instances...
+ Writing summary.h5 file...
+ Initializing source particles...
+
+ ====================>     K EIGENVALUE SIMULATION     <====================
+
+  Bat./Gen.      k            Average k
+  =========   ========   ====================
+        1/1    1.37729
+        2/1    1.14987
+        3/1    1.00282
+        4/1    1.07007
+        5/1    0.95657
+        6/1    1.01644
+        7/1    1.03029
+        8/1    0.94973
+        9/1    0.91144
+       10/1    0.96021
+       11/1    0.96181
+       12/1    1.04255    1.00218 +/- 0.04037
+       13/1    1.03867    1.01434 +/- 0.02629
+       14/1    0.98129    1.00608 +/- 0.02034
+       15/1    1.07439    1.01974 +/- 0.02086
+       16/1    1.06286    1.02693 +/- 0.01848
+       17/1    1.14389    1.04364 +/- 0.02287
+       18/1    0.96164    1.03339 +/- 0.02230
+       19/1    1.04969    1.03520 +/- 0.01975
+       20/1    1.03515    1.03520 +/- 0.01767
+       21/1    0.91923    1.02465 +/- 0.01915
+       22/1    1.00513    1.02303 +/- 0.01755
+       23/1    1.03668    1.02408 +/- 0.01618
+       24/1    0.98008    1.02093 +/- 0.01531
+       25/1    1.11211    1.02701 +/- 0.01549
+       26/1    1.00115    1.02540 +/- 0.01458
+       27/1    0.99708    1.02373 +/- 0.01380
+       28/1    0.98024    1.02131 +/- 0.01323
+       29/1    1.05286    1.02297 +/- 0.01262
+       30/1    1.10475    1.02706 +/- 0.01266
+ Creating state point statepoint.30.h5...
+
+ =======================>     TIMING STATISTICS     <=======================
+
+ Total time for initialization     = 4.4170e-03 seconds
+   Reading cross sections          = 1.4107e-03 seconds
+ Total time in simulation          = 4.6013e-02 seconds
+   Time in transport only          = 4.0725e-02 seconds
+   Time in inactive batches        = 9.6694e-03 seconds
+   Time in active batches          = 3.6343e-02 seconds
+   Time synchronizing fission bank = 1.5095e-03 seconds
+     Sampling source sites         = 1.2139e-03 seconds
+     SEND/RECV source sites        = 2.4034e-04 seconds
+   Time accumulating tallies       = 1.0486e-04 seconds
+   Time writing statepoints        = 2.8759e-03 seconds
+ Total time for finalization       = 1.0996e-04 seconds
+ Total time elapsed                = 5.1045e-02 seconds
+ Calculation Rate (inactive)       = 1.03419e+06 particles/second
+ Calculation Rate (active)         = 550307 particles/second
+
+ ============================>     RESULTS     <============================
+
+ k-effective (Collision)     = 1.02577 +/- 0.01182
+ k-effective (Track-length)  = 1.02706 +/- 0.01266
+ k-effective (Absorption)    = 1.02063 +/- 0.00793
+ Combined k-effective        = 1.02059 +/- 0.00834
+ Leakage Fraction            = 0.43100 +/- 0.00422
+

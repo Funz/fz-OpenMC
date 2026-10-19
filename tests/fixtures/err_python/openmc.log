@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "<case>/sphere.py", line 33, in <module>
+    sphere = openmc.Sphre(r=20, boundary_type="vacuum")
+             ^^^^^^^^^^^^
+AttributeError: module 'openmc' has no attribute 'Sphre'. Did you mean: 'Sphere'?

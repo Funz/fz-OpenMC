@@ -1,0 +1,14 @@
+ =========================>     TALLY 1: FLUX     <=========================
+
+ Incoming Energy [0, 0.625)
+   Total Material
+     Flux                                 2.8134 +/- 0
+     Fission Rate                         0.28134 +/- 0
+ Incoming Energy [0.625, 20000000)
+   Total Material
+     Flux                                 20.6772 +/- 0
+     Fission Rate                         0.103386 +/- 0
+ ======================>     TALLY 2: ABSORPTION     <======================
+
+ Total Material
+   Absorption Rate                      0.54438 +/- 0
